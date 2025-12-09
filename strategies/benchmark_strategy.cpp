@@ -2,21 +2,49 @@
 #include "operators/operator_factory.hpp"
 #include "utils/helpers.hpp"
 #include <chrono>
+#include <algorithm>
+#include <map>
 
-BenchmarkStrategy::BenchmarkStrategy(const GpuProperties& props) : gpu_props_(props) {
-    // Defines the full list of compute capabilities we want to test.
-    tests_to_run_ = {
+BenchmarkStrategy::BenchmarkStrategy(const GpuProperties& props, const std::vector<std::string>& selected_precisions) 
+    : gpu_props_(props) {
+    
+    std::vector<OperatorDescriptor> all_tests = {
         {Precision::FP64, Sparsity::DENSE},
-        {Precision::FP32, Sparsity::DENSE}, // This will now correctly test pure CUDA cores.
-        {Precision::TF32, Sparsity::DENSE}, // This will test Tensor Cores.
+        {Precision::FP32, Sparsity::DENSE},
+        {Precision::TF32, Sparsity::DENSE},
         {Precision::FP16, Sparsity::DENSE},
-        {Precision::FP16, Sparsity::SPARSE}, // <-- 新增稀疏 FP16 测试
+        {Precision::FP16, Sparsity::SPARSE},
         {Precision::BF16, Sparsity::DENSE},
         {Precision::INT8, Sparsity::DENSE},
-        {Precision::INT8, Sparsity::SPARSE}, // <-- 新增稀疏 INT8 测试
-        {Precision::FP8,  Sparsity::DENSE},
-        {Precision::NF4,  Sparsity::DENSE},
+        {Precision::INT8, Sparsity::SPARSE},
+        // {Precision::FP8,  Sparsity::DENSE},
+        // {Precision::FP8,  Sparsity::SPARSE},
+        // {Precision::FP4,  Sparsity::DENSE},
     };
+
+    if (selected_precisions.empty()) {
+        tests_to_run_ = all_tests;
+    } else {
+        // Create a reverse map from string to Precision enum
+        std::map<std::string, Precision> name_to_precision;
+        for(const auto& pair : PRECISION_NAMES) {
+            name_to_precision[pair.second] = pair.first;
+        }
+
+        for (const auto& selected : selected_precisions) {
+            if (name_to_precision.count(selected)) {
+                Precision p = name_to_precision.at(selected);
+                // Find all tests (dense and sparse) matching this precision
+                for(const auto& test : all_tests){
+                    if(test.precision == p){
+                        tests_to_run_.push_back(test);
+                    }
+                }
+            } else {
+                std::cerr << "Warning: Unknown precision '" << selected << "' ignored." << std::endl;
+            }
+        }
+    }
 }
 
 const std::vector<BenchmarkResult>& BenchmarkStrategy::get_results() const {
@@ -32,7 +60,7 @@ void BenchmarkStrategy::start() {
 void BenchmarkStrategy::run_loop() {
     CUDA_CHECK(cudaSetDevice(gpu_props_.device_id));
 
-    const double test_duration_seconds = 10.0; // Target duration for each test
+    const double test_duration_seconds = 10.0;
 
     for (const auto& test_desc : tests_to_run_) {
         if (stop_flag_) break;
@@ -45,34 +73,28 @@ void BenchmarkStrategy::run_loop() {
             current_result.is_supported = false;
         } else {
             current_result.is_supported = true;
-            // --- New Time-Based Benchmarking Logic ---
-
-            // 1. Warm-up phase
             for (int i = 0; i < 10; ++i) {
                 op->execute(0);
             }
             CUDA_CHECK(cudaDeviceSynchronize());
 
-            // 2. Timed execution phase
             long long iterations = 0;
             auto start_time = std::chrono::high_resolution_clock::now();
             double elapsed_seconds = 0;
 
-            // This loop will run for at least `test_duration_seconds`.
             while (elapsed_seconds < test_duration_seconds) {
-                op->execute(0); // Launch one operation
+                op->execute(0);
                 iterations++;
                 auto end_time = std::chrono::high_resolution_clock::now();
                 elapsed_seconds = std::chrono::duration<double>(end_time - start_time).count();
             }
             
-            // 3. Final synchronization and performance calculation
-            CUDA_CHECK(cudaDeviceSynchronize()); // Wait for all launched ops to finish
+            CUDA_CHECK(cudaDeviceSynchronize());
             auto final_end_time = std::chrono::high_resolution_clock::now();
             double precise_duration = std::chrono::duration<double>(final_end_time - start_time).count();
 
             double total_gops = op->get_gflops_or_gops() * iterations;
-            current_result.performance = total_gops / precise_duration / 1000.0; // TFLOPS/TOPS
+            current_result.performance = total_gops / precise_duration / 1000.0;
             current_result.is_native = op->is_native();
             current_result.unit = (test_desc.precision == Precision::INT8) ? "TOPS" : "TFLOPS";
         }

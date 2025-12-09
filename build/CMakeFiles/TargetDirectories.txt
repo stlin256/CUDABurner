@@ -1,7 +1,0 @@
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/CUDABurner.dir
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/edit_cache.dir
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/rebuild_cache.dir
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/list_install_components.dir
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/install.dir
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/install/local.dir
-/home/stlin/project/CUDA_TEST/CUDABurner/build/CMakeFiles/install/strip.dir

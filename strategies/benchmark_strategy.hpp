@@ -7,7 +7,7 @@
 
 class BenchmarkStrategy : public BaseStrategy {
 public:
-    BenchmarkStrategy(const GpuProperties& props);
+    BenchmarkStrategy(const GpuProperties& props, const std::vector<std::string>& selected_precisions = {});
     void start() override;
     const std::vector<BenchmarkResult>& get_results() const;
     

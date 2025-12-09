@@ -5,6 +5,8 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <vector>
+#include <algorithm>
 
 #include "core/gpu_props.hpp"
 #include "monitoring/monitor.hpp"
@@ -22,20 +24,35 @@ void signal_handler(int signum) {
     }
 }
 
+// Helper function to print usage
+void print_usage(const char* prog_name) {
+    std::cerr << "Usage: " << prog_name << " --mode [stress|benchmark] [--precision <p1> <p2> ...]" << std::endl;
+    std::cerr << "Example: " << prog_name << " --mode benchmark --precision FP16 FP32" << std::endl;
+}
+
 int main(int argc, char** argv) {
     unsigned int device_id = 0;
     std::string mode;
+    std::vector<std::string> selected_precisions;
 
-    // ===================================================================
-    //  NEW: Interactive Menu Logic
-    // ===================================================================
-    // If command-line arguments are provided, use them. Otherwise, show the menu.
+    // --- Argument Parsing ---
     if (argc > 1) {
-        if (std::string(argv[1]) == "--mode" && argc > 2) {
-            mode = std::string(argv[2]);
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--mode") {
+                if (i + 1 < argc) {
+                    mode = argv[++i];
+                }
+            } else if (arg == "--precision") {
+                while (i + 1 < argc && argv[i + 1][0] != '-') {
+                    selected_precisions.push_back(argv[++i]);
+                }
+            }
         }
-    } else {
-        // No arguments given, so we display the interactive menu.
+    }
+
+    // --- Interactive Menu if no mode is specified ---
+    if (mode.empty()) {
         int choice = 0;
         std::cout << "=================================" << std::endl;
         std::cout << "  CUDABurner - Mode Selection    " << std::endl;
@@ -44,71 +61,74 @@ int main(int argc, char** argv) {
         std::cout << "  2. Benchmark Test (All Precisions)" << std::endl;
         std::cout << "---------------------------------" << std::endl;
         std::cout << "Enter your choice (1 or 2): ";
-        
         std::cin >> choice;
-
         switch (choice) {
-            case 1:
-                mode = "stress";
-                break;
-            case 2:
-                mode = "benchmark";
-                break;
-            default:
-                std::cerr << "Invalid choice. Exiting." << std::endl;
-                return 1;
+            case 1: mode = "stress"; break;
+            case 2: mode = "benchmark"; break;
+            default: std::cerr << "Invalid choice. Exiting." << std::endl; return 1;
         }
     }
 
     if (mode != "stress" && mode != "benchmark") {
-        std::cerr << "Invalid mode specified. Use 'stress' or 'benchmark'." << std::endl;
+        print_usage(argv[0]);
         return 1;
+    }
+    if (mode == "stress" && !selected_precisions.empty()) {
+        std::cerr << "Warning: --precision is only applicable to benchmark mode." << std::endl;
     }
 
     signal(SIGINT, signal_handler);
 
     try {
+        // Explicitly initialize CUDA context and check for errors
+        cudaError_t err = cudaFree(0);
+        if (err != cudaSuccess) {
+            std::cerr << "Critical Error: Failed to initialize CUDA context: " << cudaGetErrorString(err) << std::endl;
+            return 1;
+        }
+
         std::cout << "Initializing CUDABurner for device " << device_id << " in '" << mode << "' mode..." << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(2)); // Give user time to see the mode
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         
         GpuProperties gpu_props(device_id);
+        
+        // --- DIAGNOSTIC PRINT ---
+        std::cout << "---------------------------------------------------------" << std::endl;
+        std::cout << "DIAGNOSTIC INFO:" << std::endl;
+        std::cout << "  GPU Name            : " << gpu_props.name << std::endl;
         GpuMonitor monitor(device_id);
         
         std::unique_ptr<BaseStrategy> strategy;
         if (mode == "benchmark") {
-            strategy = std::make_unique<BenchmarkStrategy>(gpu_props);
+            strategy = std::make_unique<BenchmarkStrategy>(gpu_props, selected_precisions);
         } else { // "stress"
             strategy = std::make_unique<StressStrategy>(gpu_props);
         }
 
         TUI tui(monitor, *strategy, mode);
 
-        // Start all threads
         monitor.start();
         strategy->start();
         tui.start();
 
-        // Wait for shutdown signal or for the strategy to complete
         while (!g_shutdown_flag && !strategy->is_done()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         
         if (strategy->is_done()) {
             std::cout << "\nTest completed. Waiting for exit signal..." << std::endl;
-            while (!g_shutdown_flag) { // Wait for Ctrl+C if test finishes on its own
+            while (!g_shutdown_flag) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
 
         std::cout << "\nShutdown signal received. Stopping threads..." << std::endl;
-
-        // Gracefully stop all threads in reverse order of dependency
+        
         strategy->stop();
         monitor.stop();
         tui.stop();
 
         std::cout << "CUDABurner finished cleanly." << std::endl;
-
     } catch (const std::exception& e) {
         std::cerr << "\nAn unrecoverable error occurred: " << e.what() << std::endl;
         return 1;

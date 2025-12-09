@@ -41,25 +41,34 @@ void GpuMonitor::monitor_loop() {
         nvmlDeviceGetName(device_handle_, new_state.name, NVML_DEVICE_NAME_BUFFER_SIZE);
 
         nvmlTemperatureSensors_t sensor_type = NVML_TEMPERATURE_GPU;
-        nvmlDeviceGetTemperature(device_handle_, sensor_type, &new_state.temperature);
+        nvmlReturn_t result;
+        result = nvmlDeviceGetTemperature(device_handle_, sensor_type, &new_state.temperature);
+        if (result != NVML_SUCCESS) new_state.temperature = 0; // Don't crash, just report 0
 
         unsigned int power_milliwatts;
-        nvmlDeviceGetPowerUsage(device_handle_, &power_milliwatts);
-        new_state.power_usage = power_milliwatts / 1000;
+        result = nvmlDeviceGetPowerUsage(device_handle_, &power_milliwatts);
+        new_state.power_usage = (result == NVML_SUCCESS) ? power_milliwatts / 1000 : 0;
 
-        nvmlDeviceGetEnforcedPowerLimit(device_handle_, &power_milliwatts);
-        new_state.power_limit = power_milliwatts / 1000;
+        result = nvmlDeviceGetEnforcedPowerLimit(device_handle_, &power_milliwatts);
+        new_state.power_limit = (result == NVML_SUCCESS) ? power_milliwatts / 1000 : 0;
         
         nvmlUtilization_t utilization{};
-        nvmlDeviceGetUtilizationRates(device_handle_, &utilization);
-        new_state.gpu_util = utilization.gpu;
-        new_state.mem_util = utilization.memory;
+        result = nvmlDeviceGetUtilizationRates(device_handle_, &utilization);
+        if (result == NVML_SUCCESS) {
+            new_state.gpu_util = utilization.gpu;
+            new_state.mem_util = utilization.memory;
+        } else {
+            new_state.gpu_util = 0;
+            new_state.mem_util = 0;
+        }
 
         nvmlClockType_t clock_type_gfx = NVML_CLOCK_GRAPHICS;
-        nvmlDeviceGetClockInfo(device_handle_, clock_type_gfx, &new_state.gpu_clock);
+        result = nvmlDeviceGetClockInfo(device_handle_, clock_type_gfx, &new_state.gpu_clock);
+        if (result != NVML_SUCCESS) new_state.gpu_clock = 0;
 
         nvmlClockType_t clock_type_mem = NVML_CLOCK_MEM;
-        nvmlDeviceGetClockInfo(device_handle_, clock_type_mem, &new_state.mem_clock);
+        result = nvmlDeviceGetClockInfo(device_handle_, clock_type_mem, &new_state.mem_clock);
+        if (result != NVML_SUCCESS) new_state.mem_clock = 0;
 
         {
             std::lock_guard<std::mutex> lock(state_mutex_);
