@@ -17,20 +17,23 @@
 GemmSparseTensorCore::GemmSparseTensorCore(const OperatorDescriptor& desc, int m, int n, int k)
     : descriptor_(desc), m_(m), n_(n), k_(k) {
     
-    // REMOVED the problematic compile-time check:
-    // #if CUDA_VERSION < 11000 ... #endif
-
     CUBLASLT_CHECK(cublasLtCreate(&cublaslt_handle_));
     
     cudaDataType_t cuda_data_type;
     cublasComputeType_t compute_type;
     size_t element_size = 0;
 
+    // --- KEY CORRECTION: Add support for INT8 ---
     switch (descriptor_.precision) {
         case Precision::FP16:
             cuda_data_type = CUDA_R_16F;
             compute_type = CUBLAS_COMPUTE_32F;
             element_size = sizeof(__half);
+            break;
+        case Precision::INT8:
+            cuda_data_type = CUDA_R_8I;
+            compute_type = CUBLAS_COMPUTE_32I;
+            element_size = sizeof(int8_t);
             break;
         default:
             throw std::runtime_error("Unsupported precision for Sparse GEMM in this version.");
@@ -49,6 +52,7 @@ GemmSparseTensorCore::GemmSparseTensorCore(const OperatorDescriptor& desc, int m
     CUBLASLT_CHECK(cublasLtMatrixLayoutCreate(&B_desc_, cuda_data_type, k, n, k));
     CUBLASLT_CHECK(cublasLtMatrixLayoutCreate(&C_desc_, cuda_data_type, m, n, m));
 
+    // Theoretical peak performance for sparse is doubled.
     gflops_or_gops_ = (2.0 * m_ * n_ * k_ * 2.0) / 1e9;
 }
 
