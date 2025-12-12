@@ -52,10 +52,15 @@ void TUI::render_loop() {
 
         if (mode_ == "stress") {
             auto* stress_strategy = dynamic_cast<StressStrategy*>(&strategy_);
-            std::string op_name = stress_strategy ? stress_strategy->get_active_operators_name() : "N/A";
-            std::cout << "[Real-time Performance]" << std::endl;
-            std::cout << "- Current Ops : " << op_name << std::endl;
-            std::cout << "- State       : Running at maximum load" << std::endl; // 修改了这一行
+            if (stress_strategy) {
+                std::string op_name = stress_strategy->get_active_operators_name();
+                double perf = stress_strategy->get_current_performance();
+                std::string units = stress_strategy->get_performance_units();
+
+                std::cout << "[Real-time Performance]" << std::endl;
+                std::cout << "- Current Ops : " << op_name << std::endl;
+                std::cout << "- Performance : " << std::fixed << std::setprecision(2) << perf << " " << units << std::endl;
+            }
         } else if (mode_ == "benchmark") {
             auto* benchmark_strategy = dynamic_cast<BenchmarkStrategy*>(&strategy_);
             std::cout << "[Benchmark Results]" << (strategy_.is_done() ? " (Completed)" : " (In Progress...)") << std::endl;

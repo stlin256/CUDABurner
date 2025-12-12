@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
 
-# Explicitly point to the user's desired CUDA version
-set(CMAKE_CUDA_COMPILER "/usr/local/cuda-13.1/bin/nvcc")
+# To make the project portable, we let CMake find the CUDA compiler.
+# If you have multiple CUDA versions installed, you can specify one by setting
+# the CUDACXX environment variable or by passing -DCMAKE_CUDA_COMPILER=/path/to/nvcc
+# to the cmake command.
 
 # Set architectures BEFORE project() to guide the compiler check
 # Compile for a wide range of modern architectures to ensure compatibility (fatbinary)

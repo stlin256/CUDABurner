@@ -98,16 +98,18 @@ int main(int argc, char** argv) {
         std::cout << "  GPU Name            : " << gpu_props.name << std::endl;
         GpuMonitor monitor(device_id);
         
+        // Start the monitor early so the strategy constructor can use it.
+        monitor.start();
+        
         std::unique_ptr<BaseStrategy> strategy;
         if (mode == "benchmark") {
             strategy = std::make_unique<BenchmarkStrategy>(gpu_props, selected_precisions);
         } else { // "stress"
-            strategy = std::make_unique<StressStrategy>(gpu_props);
+            strategy = std::make_unique<StressStrategy>(gpu_props, monitor);
         }
 
         TUI tui(monitor, *strategy, mode);
 
-        monitor.start();
         strategy->start();
         tui.start();
 
