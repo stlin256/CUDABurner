@@ -1,12 +1,13 @@
 #include "strategies/benchmark_strategy.hpp"
+#include "monitoring/monitor.hpp" // Include GpuMonitor header
 #include "operators/operator_factory.hpp"
 #include "utils/helpers.hpp"
 #include <chrono>
 #include <algorithm>
 #include <map>
 
-BenchmarkStrategy::BenchmarkStrategy(const GpuProperties& props, const std::vector<std::string>& selected_precisions) 
-    : gpu_props_(props) {
+BenchmarkStrategy::BenchmarkStrategy(GpuMonitor& monitor, const GpuProperties& props, const std::vector<std::string>& selected_precisions)
+    : monitor_(monitor), gpu_props_(props) {
     
     std::vector<OperatorDescriptor> all_tests = {
         {Precision::FP64, Sparsity::DENSE},
@@ -87,6 +88,11 @@ void BenchmarkStrategy::run_loop() {
                 iterations++;
                 auto end_time = std::chrono::high_resolution_clock::now();
                 elapsed_seconds = std::chrono::duration<double>(end_time - start_time).count();
+                
+                // Check for throttling during the test
+                if (monitor_.get_state().throttled) {
+                    current_result.was_throttled = true;
+                }
             }
             
             CUDA_CHECK(cudaDeviceSynchronize());

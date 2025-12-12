@@ -2,6 +2,7 @@
 #include "utils/helpers.hpp"
 #include <chrono>
 #include <cstring>
+#include <iostream> // For std::cerr
 
 GpuMonitor::GpuMonitor(unsigned int device_id) : device_id_(device_id), stop_flag_(false) {
     NVML_CHECK(nvmlInit());
@@ -77,10 +78,14 @@ void GpuMonitor::monitor_loop() {
         result = nvmlDeviceGetCurrentClocksThrottleReasons(device_handle_, &reasons);
         
         std::string limits_str;
-#include <iostream> // For std::cerr
         if (result == NVML_SUCCESS) {
             // Debug: Print the raw reasons value
             // std::cerr << "Throttling reasons: " << reasons << std::endl;
+            
+            // Determine if the GPU is throttled by anything other than being idle or in sync boost
+            unsigned long long non_trivial_reasons = reasons & ~nvmlClocksThrottleReasonGpuIdle & ~nvmlClocksThrottleReasonSyncBoost;
+            new_state.throttled = (non_trivial_reasons > 0);
+
             if (reasons & nvmlClocksThrottleReasonGpuIdle) limits_str += "[Idle] ";
             if (reasons & nvmlClocksThrottleReasonSwPowerCap) limits_str += "[Power] ";
             if (reasons & nvmlClocksThrottleReasonHwSlowdown) limits_str += "[HW Thermal] ";
@@ -93,6 +98,8 @@ void GpuMonitor::monitor_loop() {
             if (reasons & nvmlClocksThrottleReasonHwPowerBrake) limits_str += "[HW Power Brake] ";
 #endif
             if (reasons & nvmlClocksThrottleReasonSyncBoost) limits_str += "[Sync Boost] ";
+        } else {
+            new_state.throttled = false; // Could not determine, assume not throttled
         }
 
         // If no hardware/software limit is active, infer based on utilization

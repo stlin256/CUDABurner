@@ -28,4 +28,5 @@ struct BenchmarkResult {
     bool is_supported = true;
     std::string unit = "TFLOPS";
     std::string notes;
+    bool was_throttled = false;
 };

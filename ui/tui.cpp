@@ -76,11 +76,17 @@ void TUI::render_loop() {
                       << std::endl;
             std::cout << "----------------------------------------------------------------------------" << std::endl;
             if(benchmark_strategy) {
+                bool any_throttled = false;
                 for (const auto& res : benchmark_strategy->get_results()) {
-                    std::string perf_str = res.is_supported ? 
-                        (std::stringstream() << std::fixed << std::setprecision(2) << res.performance << " " << res.unit).str() : 
+                    std::string perf_str = res.is_supported ?
+                        (std::stringstream() << std::fixed << std::setprecision(2) << res.performance << " " << res.unit).str() :
                         "N/A";
                     
+                    if (res.was_throttled) {
+                        perf_str += "*";
+                        any_throttled = true;
+                    }
+
                     std::string mode_str = (res.descriptor.sparsity == Sparsity::SPARSE) ? "Sparse" : "Dense";
                     std::cout << std::left
                               << std::setw(10) << PRECISION_NAMES.at(res.descriptor.precision)
@@ -88,6 +94,10 @@ void TUI::render_loop() {
                               << std::setw(20) << perf_str
                               << std::setw(25) << res.notes
                               << std::endl;
+                }
+                if (any_throttled) {
+                    std::cout << "----------------------------------------------------------------------------" << std::endl;
+                    std::cout << "* Performance may be limited by throttling." << std::endl;
                 }
             }
         }

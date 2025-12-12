@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
         
         std::unique_ptr<BaseStrategy> strategy;
         if (mode == "benchmark") {
-            strategy = std::make_unique<BenchmarkStrategy>(gpu_props, selected_precisions);
+            strategy = std::make_unique<BenchmarkStrategy>(monitor, gpu_props, selected_precisions);
         } else { // "stress"
             strategy = std::make_unique<StressStrategy>(gpu_props, monitor);
         }

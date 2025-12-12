@@ -5,9 +5,11 @@
 #include <vector>
 #include <mutex>
 
+class GpuMonitor; // Forward declaration
+
 class BenchmarkStrategy : public BaseStrategy {
 public:
-    BenchmarkStrategy(const GpuProperties& props, const std::vector<std::string>& selected_precisions = {});
+    BenchmarkStrategy(GpuMonitor& monitor, const GpuProperties& props, const std::vector<std::string>& selected_precisions = {});
     void start() override;
     const std::vector<BenchmarkResult>& get_results() const;
     
@@ -18,6 +20,7 @@ public:
 private:
     void run_loop();
     
+    GpuMonitor& monitor_;
     GpuProperties gpu_props_;
     std::vector<OperatorDescriptor> tests_to_run_;
     

@@ -20,6 +20,7 @@ struct GpuState {
     
     // Performance limiting factors
     std::string perf_limiters;
+    bool throttled = false;
 };
 
 class GpuMonitor {
