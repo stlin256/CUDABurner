@@ -5,6 +5,10 @@
 
 A simple yet powerful stress and benchmark utility for NVIDIA GPUs. CUDABurner is designed to test the performance and stability of your graphics card by running various compute-intensive CUDA kernels.
 
+> **MetaX / MACA version**: [mx-burner](https://github.com/stlin256/mx-burner) — the same measurement
+> code on 沐曦曦云 C550 (cucc build), plus runtime matrix-size autotuning and memory / interconnect
+> bandwidth tests. 单卡实测 FP16 dense 277.9 TFLOPS、INT8 397.6 TOPS；八卡同时满载总功耗 3576 W。
+
 ## Screenshot
 
 ```
