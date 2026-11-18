@@ -42,6 +42,7 @@ jobs:
       - name: 产物自检
         run: |
           ls -la build/CUDABurner
-          file build/CUDABurner
-          # 运行期指标在 CI 里拿不到（无 GPU），这里只验证可执行文件能起来并给出帮助
-          ./build/CUDABurner --mode benchmark --precision FP16 2>&1 | head -5 || true
+          # 链接结果：应能看到 cudart / cublas / cublasLt / nvidia-ml
+          ldd build/CUDABurner | grep -E "cudart|cublas|nvidia-ml" || true
+          # 无 GPU，运行期（cudaFree(0) 初始化）无法验证，这里只确认产物存在且可执行
+          test -x build/CUDABurner
