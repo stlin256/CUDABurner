@@ -23,15 +23,18 @@ jobs:
         run: |
           nvcc --version | tail -2
           ls /usr/local/cuda/include/nvml.h
-          ls /usr/local/cuda/lib64/stubs/libnvidia-ml.so || true
+          ls -la /usr/local/cuda/lib64/stubs/libnvidia-ml.so || echo 'STUB_MISSING'
           cmake --version | head -1
 
       - name: 配置
         run: |
+          # libnvidia-ml 在容器里只有 stub（/usr/local/cuda/lib64/stubs），
+          # CI 无 GPU，链接 stub 足够验证编译；运行时需真实驱动。
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
-            -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
+            -DCMAKE_CUDA_ARCHITECTURES="80;86;89" \
+            -DCMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs
 
       - name: 构建
         run: cmake --build build -j"$(nproc)"
