@@ -1,0 +1,44 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cuda:
+    name: CUDA build (nvcc)
+    runs-on: ubuntu-22.04
+    container: nvidia/cuda:12.4.1-devel-ubuntu22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装构建依赖
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends cmake g++ make cuda-nvml-dev-12-4
+          rm -rf /var/lib/apt/lists/*
+
+      - name: 工具链自检
+        run: |
+          nvcc --version | tail -2
+          ls /usr/local/cuda/include/nvml.h
+          ls /usr/local/cuda/lib64/stubs/libnvidia-ml.so || true
+          cmake --version | head -1
+
+      - name: 配置
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+            -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
+
+      - name: 构建
+        run: cmake --build build -j"$(nproc)"
+
+      - name: 产物自检
+        run: |
+          ls -la build/CUDABurner
+          file build/CUDABurner
+          # 运行期指标在 CI 里拿不到（无 GPU），这里只验证可执行文件能起来并给出帮助
+          ./build/CUDABurner --mode benchmark --precision FP16 2>&1 | head -5 || true
