@@ -5,10 +5,15 @@ cmake_minimum_required(VERSION 3.18)
 # the CUDACXX environment variable or by passing -DCMAKE_CUDA_COMPILER=/path/to/nvcc
 # to the cmake command.
 
-# Set architectures BEFORE project() to guide the compiler check
-# Compile for a wide range of modern architectures to ensure compatibility (fatbinary)
+# Set architectures BEFORE project() to guide the compiler check.
 # 75: Turing, 80/86/89: Ampere/Ada, 90: Hopper
-set(CMAKE_CUDA_ARCHITECTURES 75 80 86 89 90 120)
+#
+# 不默认包含 120 (Blackwell)：该目标需要 CUDA >= 12.8，在更早的 toolkit 上
+# nvcc 会直接报 "Unsupported gpu architecture 'compute_120'"，连 configure 都过不去。
+# 需要时显式传入：cmake -DCMAKE_CUDA_ARCHITECTURES="90;120" ..
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 75 80 86 89 90)
+endif()
 
 project(CUDABurner LANGUAGES CXX CUDA)
 
