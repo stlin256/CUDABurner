@@ -7,6 +7,7 @@
 #include <chrono>
 #include <vector>
 #include <algorithm>
+#include <cstdlib>  // std::atoi / setenv
 
 #include "core/gpu_props.hpp"
 #include "monitoring/monitor.hpp"
