@@ -50,6 +50,13 @@ target_include_directories(CUDABurner PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
+# C++ 编译单元（monitor.cpp / benchmark_strategy.cpp / memory_bench.cpp）同样需要
+# nvml.h 与 cuda_runtime.h。nvcc 会自动带上 toolkit 的 include 路径，g++ 不会，
+# 所以这里显式补上，否则这些 .cpp 直接 fatal error: nvml.h not found。
+if(CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES)
+    target_include_directories(CUDABurner PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif()
+
 # Manually define CUDA_VERSION for the preprocessor as it's not being picked up automatically
 # in operator_factory.cu. This is likely because the file contains no device code.
 if(CMAKE_CUDA_COMPILER_VERSION)
