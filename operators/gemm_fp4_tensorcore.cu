@@ -1,7 +1,7 @@
 #include "operators/gemm_fp4_tensorcore.hpp"
 #include "utils/helpers.hpp"
 
-#if CUDA_VERSION >= 12030
+#if CUDA_VERSION >= 12080
 #include <cuda_fp4.h>
 
 // Helper to check cuBLAS LT errors
@@ -67,4 +67,4 @@ double GemmFp4TensorCore::get_gflops_or_gops() const {
     return gflops_or_gops_;
 }
 
-#endif // CUDA_VERSION >= 12030
+#endif // CUDA_VERSION >= 12080

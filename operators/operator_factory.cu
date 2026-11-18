@@ -110,19 +110,21 @@ std::unique_ptr<BaseOperator> create_gemm_operator(
             
         case Precision::FP4:
             {
-                // Assume FP4 has the same support as FP8 for now.
+                // cuda_fp4.h 自 CUDA 12.8 起才提供。在更早的 toolkit 上
+                // GemmFp4TensorCore 的声明本身不存在，所以整个分支要一起屏蔽，
+                // 不能只把 is_supported 置 false（那样仍会引用未声明的类型）。
+                #if CUDA_VERSION >= 12080
                 bool is_supported = (props.cc_major == 9) || (props.cc_major == 8 && props.cc_minor == 9);
-                #if CUDA_VERSION < 12030
-                    is_supported = false;
-                #endif
-
                 if (is_supported) {
                     out_notes = "Tensor Core";
                     return std::make_unique<GemmFp4TensorCore>(desc, m, n, k);
-                } else {
-                    out_notes = "FP32 Simulation (Unsupported)";
-                    return std::make_unique<GemmGeneric<float>>(desc, m, n, k, true);
                 }
+                out_notes = "FP32 Simulation (Unsupported)";
+                return std::make_unique<GemmGeneric<float>>(desc, m, n, k, true);
+                #else
+                out_notes = "FP4 requires CUDA Toolkit 12.8+ (cuda_fp4.h)";
+                return nullptr;
+                #endif
             }
     }
 

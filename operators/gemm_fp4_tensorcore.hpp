@@ -3,8 +3,8 @@
 #include "core/gpu_props.hpp"
 #include <cublasLt.h>
 
-// FP4 support requires CUDA Toolkit 12.3+
-#if CUDA_VERSION >= 12030
+// FP4 support requires CUDA Toolkit 12.8+ (that is when cuda_fp4.h ships)
+#if CUDA_VERSION >= 12080
 class GemmFp4TensorCore : public BaseOperator {
 public:
     GemmFp4TensorCore(const OperatorDescriptor& desc, int m, int n, int k);
@@ -25,4 +25,4 @@ private:
     OperatorDescriptor descriptor_;
     double gflops_or_gops_;
 };
-#endif // CUDA_VERSION >= 12030
+#endif // CUDA_VERSION >= 12080
