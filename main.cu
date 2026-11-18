@@ -14,6 +14,7 @@
 #include "strategies/stress_strategy.hpp"
 #include "strategies/benchmark_strategy.hpp"
 #include "ui/tui.hpp"
+#include "monitoring/memory_bench.hpp"
 
 // Global flag to signal shutdown from Ctrl+C
 std::atomic<bool> g_shutdown_flag(false);
@@ -26,12 +27,12 @@ void signal_handler(int signum) {
 
 // Helper function to print usage
 void print_usage(const char* prog_name) {
-    std::cerr << "Usage: " << prog_name << " --mode [stress|benchmark] [--precision <p1> <p2> ...]" << std::endl;
+    std::cerr << "Usage: " << prog_name << " --mode [stress|benchmark|memory] [--device N] [--size upstream|tuned|N] [--precision <p1> <p2> ...]" << std::endl;
     std::cerr << "Example: " << prog_name << " --mode benchmark --precision FP16 FP32" << std::endl;
 }
 
 int main(int argc, char** argv) {
-    unsigned int device_id = 0;
+    int device_id = 0;
     std::string mode;
     std::vector<std::string> selected_precisions;
 
@@ -42,6 +43,15 @@ int main(int argc, char** argv) {
             if (arg == "--mode") {
                 if (i + 1 < argc) {
                     mode = argv[++i];
+                }
+            } else if (arg == "--size") {
+                // default | 具体数字（同时作用于 M/N/K）
+                if (i + 1 < argc) {
+                    setenv("CUDABURNER_DIM", argv[++i], 1);
+                }
+            } else if (arg == "--device") {
+                if (i + 1 < argc) {
+                    device_id = std::atoi(argv[++i]);
                 }
             } else if (arg == "--precision") {
                 while (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -69,9 +79,12 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (mode != "stress" && mode != "benchmark") {
+    if (mode != "stress" && mode != "benchmark" && mode != "memory") {
         print_usage(argv[0]);
         return 1;
+    }
+    if (mode == "memory" && !selected_precisions.empty()) {
+        std::cerr << "Warning: --precision is not applicable to memory mode." << std::endl;
     }
     if (mode == "stress" && !selected_precisions.empty()) {
         std::cerr << "Warning: --precision is only applicable to benchmark mode." << std::endl;
@@ -89,6 +102,11 @@ int main(int argc, char** argv) {
 
         std::cout << "Initializing CUDABurner for device " << device_id << " in '" << mode << "' mode..." << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        // memory 模式：独立输出，不进 TUI
+        if (mode == "memory") {
+            return run_memory_bench(device_id) == 0 ? 0 : 1;
+        }
         
         GpuProperties gpu_props(device_id);
         

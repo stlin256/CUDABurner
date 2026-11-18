@@ -52,8 +52,13 @@ GemmSparseTensorCore::GemmSparseTensorCore(const OperatorDescriptor& desc, int m
     CUBLASLT_CHECK(cublasLtMatrixLayoutCreate(&B_desc_, cuda_data_type, k, n, k));
     CUBLASLT_CHECK(cublasLtMatrixLayoutCreate(&C_desc_, cuda_data_type, m, n, m));
 
-    // Theoretical peak performance for sparse is doubled.
-    gflops_or_gops_ = (2.0 * m_ * n_ * k_ * 2.0) / 1e9;
+    // 本实现只设置了 TRANSA，送入的矩阵并不是 2:4 压缩存储，因此实际执行的是
+    // DENSE 的转置 GEMM。原代码无条件按稀疏记双倍吞吐，会把结果虚报一倍。
+    // 只有在真正送入压缩矩阵时才允许按稀疏记账（见 sparsity 说明）。
+    //
+    // 即使平台提供 CUBLASLT_MATMUL_DESC_SPARSE，也必须配合压缩矩阵才成立，
+    // 所以这里一律按 dense 记账，并在注释里保留这条约束。
+    gflops_or_gops_ = (2.0 * m_ * n_ * k_) / 1e9;
 }
 
 GemmSparseTensorCore::~GemmSparseTensorCore() {

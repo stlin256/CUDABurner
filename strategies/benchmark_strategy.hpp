@@ -4,6 +4,7 @@
 #include "core/gpu_props.hpp"
 #include <vector>
 #include <mutex>
+#include <map>
 
 class GpuMonitor; // Forward declaration
 
@@ -20,6 +21,12 @@ public:
 
 private:
     void run_loop();
+
+    // 运行时尺寸自动探测：对每个 (precision, sparsity) 在候选尺寸上短测，
+    // 取实测吞吐最高者。结果缓存，避免每项重复探测。
+    int autotune_dim(const OperatorDescriptor& desc);
+    std::map<int, int> tuned_dim_cache_;   // key: precision*10 + sparsity
+
     
     GpuMonitor& monitor_;
     GpuProperties gpu_props_;

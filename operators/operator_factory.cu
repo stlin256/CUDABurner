@@ -1,5 +1,9 @@
 #include "operators/operator_factory.hpp"
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
 
 #include "operators/gemm_generic.hpp"
 #include "operators/gemm_tensorcore.hpp"
@@ -7,14 +11,37 @@
 #include "operators/gemm_fp8_tensorcore.hpp"
 #include "operators/gemm_fp4_tensorcore.hpp"
 
+namespace {
+
+// --- 矩阵尺寸选择 ---------------------------------------------------------
+// 历史固定值：FP64=2048, INT8=8192, 其余=4096。
+// 这是**未做探测时的保守默认值**，不是最优值：实测表明吞吐随边长变化很大
+// （实测：同一份 FP16 代码在 MetaX C550 上，边长 2048 只有 175 TFLOPS，16384 是 278）。
+// benchmark 模式会先做运行时探测（见 BenchmarkStrategy::autotune_dim）再决定实际边长，
+// 所以真正生效的值通常不是这里。
+int default_dim(Precision p) {
+    if (p == Precision::FP64) return 2048;
+    if (p == Precision::INT8) return 8192;
+    return 4096;
+}
+
+int resolve_dim(Precision p) {
+    const char* env = std::getenv("CUDABURNER_DIM");
+    if (env == nullptr) return default_dim(p);
+    if (std::strcmp(env, "default") == 0 || std::strcmp(env, "legacy") == 0) return default_dim(p);
+    int d = std::atoi(env);
+    return d > 0 ? d : default_dim(p);
+}
+
+}  // namespace
+
 namespace OperatorFactory {
 
 std::unique_ptr<BaseOperator> create_gemm_operator(
-    const OperatorDescriptor& desc, const GpuProperties& props, std::string& out_notes) {
-    
-    int m = 4096, n = 4096, k = 4096;
-    if(desc.precision == Precision::FP64) { m=2048; n=2048; k=2048; }
-    if(desc.precision == Precision::INT8) { m=8192; n=8192; k=8192; }
+    const OperatorDescriptor& desc, const GpuProperties& props, std::string& out_notes, int dim_override) {
+
+    const int dim = dim_override > 0 ? dim_override : resolve_dim(desc.precision);
+    int m = dim, n = dim, k = dim;
 
     if (desc.sparsity == Sparsity::SPARSE) {
         if (props.cc_major >= 9) {

@@ -27,6 +27,7 @@ endif()
 add_executable(CUDABurner
     main.cu # <-- KEY CHANGE
     monitoring/monitor.cpp
+    monitoring/memory_bench.cpp
     operators/gemm_generic.cu
     operators/gemm_tensorcore.cu
     operators/vector_add.cu
